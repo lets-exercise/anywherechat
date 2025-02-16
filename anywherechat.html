@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Anywherechat</title>
+  <!-- Axios CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <!-- Socket.IO Client CDN -->
+  <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f2f2f2; }
+    header { background-color: #333; color: #fff; padding: 10px; text-align: center; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 5px; }
+    .hidden { display: none; }
+    form { margin-bottom: 20px; }
+    input[type="text"], input[type="password"], input[type="email"] {
+      width: 100%; padding: 8px; margin: 5px 0 10px; box-sizing: border-box;
+    }
+    button { padding: 10px 15px; margin-right: 10px; }
+    .chat-messages {
+      border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 10px; background: #fafafa;
+    }
+    .chat-input { width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; }
+    h2 { border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Anywherechat</h1>
+  </header>
+  <div class="container">
+    <!-- 인증 영역 -->
+    <section id="auth-section">
+      <h2>인증</h2>
+      <button id="show-signup">회원가입</button>
+      <button id="show-login">로그인</button>
+      
+      <div id="signup-form" class="hidden">
+        <h3>회원가입</h3>
+        <form id="form-signup">
+          <input type="text" id="signup-username" placeholder="사용자 이름" required>
+          <input type="email" id="signup-email" placeholder="이메일" required>
+          <input type="password" id="signup-password" placeholder="비밀번호" required>
+          <button type="submit">회원가입</button>
+        </form>
+      </div>
+      
+      <div id="login-form" class="hidden">
+        <h3>로그인</h3>
+        <form id="form-login">
+          <input type="text" id="login-username" placeholder="사용자 이름" required>
+          <input type="password" id="login-password" placeholder="비밀번호" required>
+          <button type="submit">로그인</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 방 관련 영역 -->
+    <section id="room-section" class="hidden">
+      <h2>방 관리</h2>
+      <button id="create-room-btn">방 생성</button>
+      <button id="join-room-btn">방 입장</button>
+      
+      <div id="create-room-form" class="hidden">
+        <h3>방 생성</h3>
+        <form id="form-create-room">
+          <input type="text" id="room-name-create" placeholder="방 이름" required>
+          <button type="submit">생성</button>
+        </form>
+      </div>
+      
+      <div id="join-room-form" class="hidden">
+        <h3>방 입장</h3>
+        <form id="form-join-room">
+          <input type="text" id="room-name-join" placeholder="방 이름" required>
+          <button type="submit">입장</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 채팅 영역 -->
+    <section id="chat-section" class="hidden">
+      <h2>채팅 - 방: <span id="current-room-name"></span></h2>
+      <div class="chat-messages" id="chat-messages"></div>
+      <input type="text" id="chat-input" class="chat-input" placeholder="메시지 입력 후 엔터">
+    </section>
+  </div>
+
+  <script>
+    // 서버 주소와 포트를 실제 서버에 맞춰주세요
+    const BASE_URL = 'http://castberry.kr:36000'; 
+    
+    let authToken = null;   
+    let socket = null;
+    let currentRoom = null;
+    let myUsername = null;  // 로그인 성공 후 내 username 저장
+
+    // 섹션 보이기/숨기기 함수
+    function showSection(id) {
+      document.getElementById('auth-section').classList.add('hidden');
+      document.getElementById('room-section').classList.add('hidden');
+      document.getElementById('chat-section').classList.add('hidden');
+      if(document.getElementById(id)) {
+        document.getElementById(id).classList.remove('hidden');
+      }
+    }
+    
+    // 채팅 메시지 추가 함수
+    function appendMessage(message) {
+      const msgDiv = document.getElementById('chat-messages');
+      const p = document.createElement('p');
+      p.textContent = message;
+      msgDiv.appendChild(p);
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+    
+    // 회원가입, 로그인 폼 토글
+    document.getElementById('show-signup').addEventListener('click', () => {
+      document.getElementById('signup-form').classList.remove('hidden');
+      document.getElementById('login-form').classList.add('hidden');
+    });
+    document.getElementById('show-login').addEventListener('click', () => {
+      document.getElementById('login-form').classList.remove('hidden');
+      document.getElementById('signup-form').classList.add('hidden');
+    });
+    
+    // 회원가입 처리
+    document.getElementById('form-signup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('signup-username').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      try {
+        const res = await axios.post(BASE_URL + '/auth/signup', { username, email, password });
+        alert('회원가입 성공! 로그인 해주세요.');
+      } catch(err) {
+        alert('회원가입 오류: ' + (err.response?.data?.message || err.message));
+      }
+    });
+    
+    // 로그인 처리
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+      try {
+        const res = await axios.post(BASE_URL + '/auth/login', { username, password });
+        authToken = res.data.token;
+        // 내 username 저장
+        myUsername = username;
+
+        // Axios 기본 헤더에 토큰 저장 (REST API 용)
+        axios.defaults.headers.common['Authorization'] = 'Bearer ' + authToken;
+
+        alert('로그인 성공!');
+        // 로그인 후 방 관리 섹션 표시
+        showSection('room-section');
+      } catch(err) {
+        alert('로그인 오류: ' + (err.response?.data?.message || err.message));
+      }
+    });
+    
+    // 방 생성 토글 및 처리
+    document.getElementById('create-room-btn').addEventListener('click', () => {
+      document.getElementById('create-room-form').classList.toggle('hidden');
+    });
+    document.getElementById('form-create-room').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const roomName = document.getElementById('room-name-create').value;
+      try {
+        const res = await axios.post(BASE_URL + '/rooms', { name: roomName });
+        alert('방 생성 완료: ' + roomName);
+      } catch(err) {
+        alert('방 생성 오류: ' + (err.response?.data?.message || err.message));
+      }
+    });
+    
+    // 방 입장 토글 및 처리
+    document.getElementById('join-room-btn').addEventListener('click', () => {
+      document.getElementById('join-room-form').classList.toggle('hidden');
+    });
+    document.getElementById('form-join-room').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const roomName = document.getElementById('room-name-join').value.trim();
+      if(!roomName) return;
+
+      currentRoom = roomName;
+      document.getElementById('current-room-name').textContent = roomName;
+      
+      // 이전 소켓이 있다면 종료
+      if(socket) {
+        socket.disconnect();
+      }
+      
+      // 새 소켓 연결
+      socket = io(BASE_URL, {
+        auth: { token: authToken }
+      });
+      
+      socket.on('connect', () => {
+        console.log('소켓 연결됨: ' + socket.id);
+        // 방 입장 (ephemeral)
+        socket.emit('joinRoom', roomName, (response) => {
+          console.log('joinRoom 응답:', response);
+        });
+      });
+      
+      // 소켓으로 들어오는 메시지 처리
+      socket.on('chatMessage', (data) => {
+        const { user, text, createdAt } = data;
+        const time = createdAt ? new Date(createdAt).toLocaleTimeString() : '';
+        if(user.username === myUsername) {
+          appendMessage(`[${time}] Me: ${text}`);
+        } else {
+          appendMessage(`[${time}] ${user.username}: ${text}`);
+        }
+      });
+      
+      socket.on('disconnect', () => {
+        console.log('소켓 연결 종료');
+      });
+      
+      // 채팅 섹션 표시
+      showSection('chat-section');
+    });
+    
+    // 채팅 메시지 전송 (Enter 키)
+    document.getElementById('chat-input').addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') {
+        const message = e.target.value.trim();
+        if(message && socket && currentRoom) {
+          // 서버로 메시지 전송
+          socket.emit('chatMessage', { roomName: currentRoom, message });
+          // 직접 appendMessage(...) 안 하고, 서버 broadcast만 표시
+          e.target.value = '';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
