@@ -14,7 +14,7 @@ const { io } = require('socket.io-client');
 const readline = require('readline');
 
 // Adjust server address if needed
-const BASE_URL = 'http://castberry.kr:36000';
+const BASE_URL = 'http://localhost:36000';
 
 let authToken = null;       // JWT token
 let currentSocket = null;   // Socket.io instance
