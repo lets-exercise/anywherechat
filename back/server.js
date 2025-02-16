@@ -329,8 +329,14 @@ io.on('connection', (socket) => {
               await transporter.sendMail({
                 from: GMAIL_USER,
                 to: userMentioned.email,
-                subject: `[Anywherechat] ${socket.user.username}님이 멘션했했어요! `,
-                text: `누추한 당신에게 ${socket.user.username}님이 이런 귀한 '${roomName}'에요. \n ${socket.user.username} : "${message}"`,
+                subject: `[Anywherechat] ${socket.user.username}님이 멘션했어요! `,
+                _text: `누추한 당신에게 ${socket.user.username}님이 이런 귀한 <${roomName}>으로 불렀습니다. \n ${socket.user.username} : "${message}"`,
+                get text() {
+                    return this._text;
+                },
+                set text(value) {
+                    this._text = value;
+                },
               });
               console.log(`Mention email sent to ${userMentioned.email}`);
             } catch (emailErr) {
