@@ -21,7 +21,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const nodemailer = require('nodemailer');
-
+const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -33,6 +33,7 @@ const io = new Server(server, {
 
 app.use(express.json());
 
+app.use(cors());
 //////////////////////////////////////////////////
 // CONFIGURATION (ENV VARIABLES)
 //////////////////////////////////////////////////
