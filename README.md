@@ -30,3 +30,7 @@ npm install express mongoose bcrypt jsonwebtoken nodemailer dotenv
 
 ### GET /rooms/:roomId/messages
 - **Description**: Fetch all messages in a room by `roomId`. Requires JWT authentication.
+
+
+# front (cli)  
+npm run start ㄱㄱ  
