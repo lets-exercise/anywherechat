@@ -133,7 +133,7 @@ app.post('/auth/signup', async (req, res) => {
     }
 
     // Check duplicates
-    const existingUser = await User.findOne({ $or: [{ username }] });
+    const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: 'Username or email already taken' });
     }
